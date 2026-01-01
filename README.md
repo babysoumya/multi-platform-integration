@@ -1,76 +1,104 @@
-HubSpot Integration Task
+# HubSpot Integration
 
-This project has two main parts:
+This document provides an overview of the HubSpot integration implemented in the system. The integration follows the same architectural patterns and conventions used for existing third‑party integrations to ensure consistency, maintainability, and ease of extension.
 
-setting up the HubSpot OAuth flow (backend + frontend), and
+---
 
-loading data from HubSpot after authentication.
+## Overview
 
-Below is everything I need to complete for both sides.
+The system includes multiple third-party integrations that are implemented using a shared authentication and data-ingestion framework. AirTable, Notion, and HubSpot are implemented following the same architectural patterns so that each integration behaves consistently across backend services and the frontend UI.
 
-Part 1: HubSpot OAuth Integration
-Backend
+All integrations are treated uniformly by the system, with no special-case logic. This makes the integration layer predictable, maintainable, and easy to extend.
 
-Inside /backend/integrations, there are three files:
+---
 
-airtable.py → already completed
+## OAuth Authentication
 
-notion.py → already completed
+### Backend
 
-hubspot.py → this one is empty and I need to finish it
+Backend logic is implemented in:
 
-Using the structure from AirTable and Notion, I need to finish these functions:
+```
+/backend/integrations/hubspot.py
+```
 
-authorize_hubspot
+The following responsibilities are handled:
 
-oauth2callback_hubspot
+* **Authorization redirect**: Constructs the HubSpot OAuth authorization URL with the required scopes and redirects the user to HubSpot’s consent screen.
+* **OAuth callback handling**: Processes the authorization code returned by HubSpot and exchanges it for access and refresh tokens.
+* **Credential management**: Stores and retrieves OAuth credentials, automatically refreshing access tokens when required.
 
-get_hubspot_credentials
+The implementation follows the shared integration structure used across the system, making the behavior predictable and easy to reason about.
 
-I should follow the same patterns as the other two integrations and refer to HubSpot’s OAuth documentation for the exact endpoints.
+A dedicated HubSpot developer application is used to obtain the required OAuth credentials:
 
-Since the client credentials for AirTable and Notion are redacted, those integrations will not run.
-So I need to create my own HubSpot app and generate:
+* Client ID
+* Client Secret
 
-Client ID
+These credentials are configured via environment variables to keep sensitive information out of the codebase.
 
-Client Secret
+---
 
-(Optional) I can also make my own Notion and AirTable credentials if I want to fully test everything.
+### Frontend
 
-Frontend
+Frontend integration logic is implemented in:
 
-In /frontend/src/integrations, there are:
+```
+/frontend/src/integrations/hubspot.js
+```
 
-airtable.js
+The frontend is responsible for:
 
-notion.js
+* Initiating the HubSpot OAuth flow via backend endpoints
+* Handling loading and error states during authentication
+* Updating integration status once authorization is complete
 
-hubspot.js → empty file that I need to fill in
+HubSpot is registered alongside other integrations in all relevant UI locations, including:
 
-I need to:
+* Integration imports
+* Integration listings
+* Selection menus
 
-Write the full HubSpot integration logic in hubspot.js
+As a result, HubSpot appears and behaves identically to other supported integrations from a user perspective.
 
-Add HubSpot to the correct places in the UI so it appears like the other integrations
-(imports, integration list, selection menu, etc.)
+---
 
-Basically, wherever AirTable and Notion appear, HubSpot should appear too.
+## Data Loading
 
-Part 2: Loading HubSpot Items
+Once authentication is complete, HubSpot data is loaded through:
 
-After I get valid HubSpot credentials from the OAuth flow, I need to complete:
+```
+get_items_hubspot
+```
 
-get_items_hubspot in /backend/integrations/hubspot.py
+### Data Fetching & Mapping
 
-This function should:
+This logic performs the following steps:
 
-Use the OAuth tokens I retrieved
+1. Retrieves valid HubSpot credentials from the credential store.
+2. Calls HubSpot APIs using the authenticated access token.
+3. Fetches supported HubSpot entities (such as contacts, companies, or deals).
+4. Normalizes each entity into the shared `IntegrationItem` model.
 
-Call HubSpot’s API endpoints
+The mapping strategy aligns with the shared integration model, ensuring a consistent structure across integrations regardless of the data source.
 
-Return a list of IntegrationItem objects
+Each `IntegrationItem` includes:
 
-The IntegrationItem model already has multiple fields, and depending on what I choose from HubSpot (e.g., contacts, deals, companies), I should map the returned fields appropriately. I can use the Notion and AirTable integrations as a reference for how the items are formatted.
+* A stable external identifier
+* A human‑readable name or label
+* An integration‑specific type
+* Raw metadata for downstream use
 
-For testing, printing the final list of items in the console is good enough.
+For observability during development, the resulting list of items is logged, which allows easy verification of the ingestion pipeline.
+
+---
+
+## Summary
+
+The HubSpot integration is implemented as a first‑class integration within the system:
+
+* OAuth authentication is fully supported and secure
+* HubSpot is seamlessly integrated into the existing UI and backend flow
+* HubSpot data is normalized into a common integration model
+
+This approach keeps all integrations consistent across the platform and allows additional providers to be added with minimal effort in the future.
