@@ -1,4 +1,4 @@
-# HubSpot Integration
+# Integrations Overview
 
 This document provides an overview of the HubSpot integration implemented in the system. The integration follows the same architectural patterns and conventions used for existing third‑party integrations to ensure consistency, maintainability, and ease of extension.
 
